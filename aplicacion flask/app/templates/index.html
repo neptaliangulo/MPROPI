@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Països del món</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        label { display: block; margin-top: 10px; }
+        select, input { margin-bottom: 10px; }
+        #countryResult, #filterResult { margin-top: 20px; }
+        table { border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+    <h1>Información de paises</h1>
+
+    <h2>Consultar datos de un pais</h2>
+    <label>País:</label>
+    <select id="countrySelect">
+        <option value="">-- Selecciona un pais --</option>
+    </select>
+    <button onclick="fetchCountryData()">Mostrar datos</button>
+    <div id="countryResult"></div>
+
+    <hr>
+
+    <h2>Filtrar paises por variables</h2>
+    <label>Variable:</label>
+    <select id="variableSelect">
+        <option value="GDP">PIB (GDP)</option>
+        <option value="Population">Població</option>
+        <option value="Life_Expectancy">Esperanza de vida</option>
+        <option value="Area">Superfície total</option>
+    </select>
+
+    <label>Valor minimo:</label>
+    <input type="number" id="minVal" step="any">
+
+    <label>Valor maximo:</label>
+    <input type="number" id="maxVal" step="any">
+
+    <button onclick="filterCountries()">Filtrar</button>
+    <div id="filterResult"></div>
+
+    <script>
+        async function loadCountries() {
+            const res = await fetch("/getAllCountries");
+            const data = await res.json();
+            const select = document.getElementById("countrySelect");
+            data.countries.forEach(c => {
+                const option = document.createElement("option");
+                option.value = c;
+                option.textContent = c;
+                select.appendChild(option);
+            });
+        }
+
+        async function fetchCountryData() {
+            const country = document.getElementById("countrySelect").value;
+            if (!country) return alert("seleccione un pais.");
+            const res = await fetch("/countryData", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({ country })
+            });
+
+            const data = await res.json();
+            const div = document.getElementById("countryResult");
+            if (res.ok) {
+                let html = "<table>";
+                for (const key in data) {
+                    html += `<tr><th>${key}</th><td>${data[key]}</td></tr>`;
+                }
+                html += "</table>";
+                div.innerHTML = html;
+            } else {
+                div.innerHTML = `<p style="color:red;">${data.error}</p>`;
+            }
+        }
+
+        async function filterCountries() {
+            const variable = document.getElementById("variableSelect").value;
+            const min_val_raw = document.getElementById("minVal").value;
+            const max_val_raw = document.getElementById("maxVal").value;
+
+            const min_val = parseFloat(min_val_raw);
+            const max_val = parseFloat(max_val_raw);
+
+            if (isNaN(min_val) || isNaN(max_val)) {
+                return alert("Por favor, introduzca valores validos");
+            }
+
+            const res = await fetch("/filterCountries", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({ variable, min_val, max_val })
+            });
+
+            const data = await res.json();
+            const div = document.getElementById("filterResult");
+            if (res.ok) {
+                if (!data.countries || data.countries.length === 0) {
+                    div.innerHTML = "<p>No hay paises con estos valores.</p>";
+                } else {
+                    let html = "<ul>";
+                    data.countries.forEach(c => html += `<li>${c}</li>`);
+                    html += "</ul>";
+                    div.innerHTML = html;
+                }
+            } else {
+                div.innerHTML = `<p style="color:red;">${data.error}</p>`;
+            }
+        }
+
+        window.onload = loadCountries;
+    </script>
+</body>
+</html>
